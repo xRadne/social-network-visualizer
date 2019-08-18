@@ -1,0 +1,5 @@
+# Exclude Data
+*.json
+
+# Include Sample Data
+!miserables.json
