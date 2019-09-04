@@ -1,4 +1,3 @@
-// import ForceGraph3D from '3d-force-graph';
 import Timer from './Timer.js';
 
 const divElement = document.getElementById("3d-graph");
@@ -14,7 +13,7 @@ const Graph = ForceGraph3D(configOptions)(divElement)
   .enableNodeDrag(true)
   .onNodeHover(node => divElement.style.cursor = node ? 'pointer' : null)
   // .onNodeClick(removeNode)
-  .nodeThreeObject(createImageObject)
+  // .nodeThreeObject(createImageObject)
   .cameraPosition({ z: distance })
   .showNavInfo(true)
 
@@ -27,7 +26,7 @@ timer.update = (deltaTime) => {
   });
   angle += Math.PI * deltaTime / 10;
 }
-timer.start();
+// timer.start();
 
 fetch('./miserables.json')
   .then(response => response.json())
