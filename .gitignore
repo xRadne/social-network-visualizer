@@ -1,6 +1,9 @@
 # Exclude Data
 *.json
 
+# Exclude Modules
+node_modules/
+
 # Exclude Private
 private
 
