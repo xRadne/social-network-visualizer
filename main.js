@@ -7,8 +7,6 @@ stats.begin();
 
 const divElement = document.getElementById("3d-graph");
 
-const distance = 500;
-
 const configOptions  = { 
   controlType: 'orbit', 
   rendererConfig: { antialias: true, alpha: true } 
@@ -16,46 +14,88 @@ const configOptions  = {
 
 let selectedNode = null
 
-// const Graph = ForceGraph(configOptions)(divElement)
 const Graph = ForceGraph3D(configOptions)(divElement)
   .enableNodeDrag(true)
   .onNodeHover(node => {divElement.style.cursor = node ? 'pointer' : null})
-  // .onNodeClick(removeNode)
-  .onNodeClick(selectNode)
-  // .nodeThreeObject(createImageObject)
+  .onNodeClick(onNodeClick)
+  .linkVisibility(getLinkVisibility)
   .nodeThreeObject(nodeObject)
-  .cameraPosition({ z: distance })
   .showNavInfo(true)
   .onEngineTick(() => {stats.end(); stats.begin();})
+  
+var GraphX = new jsnx.Graph()
 
 class GraphSettings {
   constructor() {
     this.pathToData = './miserables.json';
     this.nodeShape = 'sphere';
-    this.update = function () { Graph.refresh(); };
+    this.visibleLinks = true;
+    // this.update = function () { Graph.refresh(); };
   }
 }
 
-var graphSettings = new GraphSettings();
 var gui = new dat.GUI();
+
+var f1 = gui.addFolder('General'); f1.open()
+var graphSettings = new GraphSettings();
 const possiblePaths = ['./miserables.json','./private/FacebookFriendsData.json']
-gui.add(graphSettings,'pathToData',possiblePaths).onFinishChange(load);
-gui.add(graphSettings,'nodeShape',['image','text','sphere']).onFinishChange(Graph.refresh);
-gui.add(graphSettings,'update');
+f1.add(graphSettings,'pathToData',possiblePaths).onFinishChange(load);
+f1.add(graphSettings,'nodeShape',['image','text','sphere']).onChange(Graph.refresh);
+f1.add(graphSettings,'visibleLinks').onChange(Graph.refresh);
+
+var graphStatistics = {
+//  computeNodeCentrality: 
+}
+var f2 = gui.addFolder('Statistics')
+f2.add(graphStatistics,'computeNodeCentrality');
+
+var style = {
+  nodeColor: '#bbcc77',
+  nodeSelectionColor: '#bb3333',
+  linkColor: '#505050'
+}
+var f3 = gui.addFolder('Styling'); f3.open()
+f3.addColor(style, 'nodeColor').onFinishChange(Graph.refresh)
+f3.addColor(style, 'nodeSelectionColor').onFinishChange(Graph.refresh)
+f3.addColor(style, 'linkColor').onFinishChange(Graph.refresh)
 
 load(graphSettings.pathToData)
 
-const mapFriendsToNodes = ({friends, links}) => ({nodes: friends, links})
+const mapFriendsToNodes = data => ({nodes: data.friends, ...data})
 
 function load(path) {
   return fetch(path)
     .then(response => response.json())
     .then(data => {
-      if (data.nodes) return data
-      if (data.friends) return mapFriendsToNodes(data)
+      if (data.nodes && data.links) return data
+      if (data.friends && data.links) return mapFriendsToNodes(data)
       return {nodes: [], links: []}
     })
+    .then(data => {
+      let edges = data.links.map(l => {return [l.source, l.target]})
+      GraphX.addEdgesFrom(edges)
+      console.log(GraphX)
+      return data
+    })
     .then(Graph.graphData)
+}
+
+function onNodeClick(node) {
+  selectNode(node)
+  console.log(node)
+  // Graph.refresh()
+  Graph
+    .linkVisibility(getLinkVisibility)
+    .nodeThreeObject(nodeObject)
+}
+
+function getLinkVisibility(link, index) {
+  if (graphSettings.visibleLinks) {
+    if (selectedNode)
+      return link.source.id === selectedNode.id || link.target.id === selectedNode.id
+    return true
+  }
+  return false
 }
 
 function removeNode(node) {
@@ -69,28 +109,8 @@ function removeNode(node) {
 function selectNode(node) {
   if (selectedNode && selectedNode.id === node.id) {
     selectedNode = null;
-    load(graphSettings.pathToData)
-  } else if (selectedNode === null) {
-    selectedNode = node;
-    let { nodes, links } = Graph.graphData();
-    let updatedLinks = links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id);
-
-    let nodeIds = updatedLinks.map(l => l.source.id === selectedNode.id ? l.target.id : l.source.id);
-    nodeIds = [...nodeIds, selectedNode.id];
-    let updatedNodes = nodes.filter(n => nodeIds.includes(n.id));
-
-    Graph.graphData({ nodes: updatedNodes, links: updatedLinks });
   } else {
     selectedNode = node;
-    load(graphSettings.pathToData)
-    let { nodes, links } = Graph.graphData();
-    let updatedLinks = links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id);
-
-    let nodeIds = updatedLinks.map(l => l.source.id === selectedNode.id ? l.target.id : l.source.id);
-    nodeIds = [...nodeIds, selectedNode.id];
-    let updatedNodes = nodes.filter(n => nodeIds.includes(n.id));
-
-    Graph.graphData({ nodes: updatedNodes, links: updatedLinks });
   }
 }
 
@@ -98,15 +118,19 @@ function nodeObject(node) {
   switch (graphSettings.nodeShape) {
     case 'image': return createImageObject(node)
     case 'text': return createTextObject(node)
-    default: return createSphereObject()
+    default: return createSphereObject(node)
   }
 }
 
-function createSphereObject() {
+function createSphereObject(node) {
+  let color = (selectedNode && node.id === selectedNode.id) 
+  ? style.nodeSelectionColor 
+  : style.nodeColor;
+
   return new THREE.Mesh(
     new THREE.SphereGeometry(7),
     new THREE.MeshLambertMaterial({
-      color: '#b3c471',
+      color,
       transparent: true,
       opacity: 0.75
     })
@@ -120,12 +144,11 @@ function createImageObject({ imageUri, imageUrl }) {
     new THREE.MeshBasicMaterial({ depthWrite: false, transparent: true, opacity: 0 })
   );
   // add img sprite as child
-  let imgTexture
-  if (imageUri)
-    imgTexture = new THREE.TextureLoader().load(imageUri);
-  else if (imageUrl) {
-    imgTexture = new THREE.TextureLoader().load(imageUrl);    
-  }
+  let imgTexture = 
+  (imageUri) ? new THREE.TextureLoader().load(imageUri) :
+  (imageUrl) ? new THREE.TextureLoader().load(imageUrl) : 
+  null;
+
   const material = new THREE.SpriteMaterial({ map: imgTexture });
   const sprite = new THREE.Sprite(material);
   sprite.scale.set(12, 12);
@@ -140,13 +163,7 @@ function createTextObject(node) {
     new THREE.MeshBasicMaterial({ depthWrite: false, transparent: true, opacity: 0 })
   );
   // add text sprite as child
-  let sprite
-  if (node.name) {
-    sprite = new SpriteText(node.name);
-  } else {
-    sprite = new SpriteText(node.id);
-  }
-  // sprite.color = node.color;
+  let sprite = (node.name) ? new SpriteText(node.name) : new SpriteText(node.id);
   sprite.textHeight = 8;
   obj.add(sprite);
   return obj;
