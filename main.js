@@ -47,7 +47,7 @@ var graphStatistics = {
 //  computeNodeCentrality: 
 }
 var f2 = gui.addFolder('Statistics')
-f2.add(graphStatistics,'computeNodeCentrality');
+//f2.add(graphStatistics,'computeNodeCentrality');
 
 var style = {
   nodeColor: '#bbcc77',
