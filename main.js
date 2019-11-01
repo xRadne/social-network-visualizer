@@ -13,7 +13,6 @@ let state = {
 }
 
 const divElement = document.getElementById("3d-graph");
-const passwordContainerElement = document.getElementById('passwordContainer');
 const passwordInputElement = document.getElementById('passwordInput');
 const passwordButtonElement = document.getElementById('passwordButton');
 passwordButtonElement.onclick = onPasswordInput;
@@ -123,7 +122,7 @@ function load(path) {
 }
 
 function isEncrypted(data) {
-  return data.readable !== 'true'
+  return data.readable && data.readable !== 'true'
 }
 
 function tryDecryptData(encryptedData) {

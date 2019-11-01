@@ -1,5 +1,10 @@
 # Exclude Data
 *.json
+
+# Exceptions
+!miserables.json
+!encryptedFacebookFriendsData.json
+
 !package.json
 !package-lock.json
 
@@ -8,6 +13,3 @@ node_modules/
 
 # Exclude Private
 private
-
-# Include Sample Data
-!miserables.json
