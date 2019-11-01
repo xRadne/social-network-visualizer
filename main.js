@@ -1,4 +1,5 @@
 import TeaClass from './Tea.js'
+import * as ColorConverions from './ColorConversions.js'
 const Tea = new TeaClass();
 
 // STATISTICS 
@@ -62,8 +63,8 @@ f2.add(graphStatistics, 'nodeDegree');
 f2.add(graphStatistics, 'computeBetweenessCentrality');
 
 var style = {
-  primaryNodeColor: '#bbcc77',
-  secondaryNodeColor: '#bb3333',
+  primaryNodeColor: '#ccff00',
+  secondaryNodeColor: '#ff0000',
   linkColor: '#505050'
 }
 var f3 = gui.addFolder('Styling'); f3.open()
@@ -263,6 +264,8 @@ function computeBetweenessCentrality() {
   nodeBetweennessCentralities.forEach(bc => {
     if (bc[1] > maxValue) maxValue = bc[1]
   })
+  style.primaryNodeColor = '#00d0ff'
+  style.secondaryNodeColor = '#ff0000'
   function getNodeColorByBetweenessCentrality(node) {
     let value
     try {
@@ -271,8 +274,7 @@ function computeBetweenessCentrality() {
       value = 0
     }
     let normalized = Math.pow(value / maxValue, 1/4);
-    let redness = Math.round(255 * normalized);
-    return 'rgb(' + redness + ',100,100)'
+    return ColorConverions.interpolateHex(normalized, style.primaryNodeColor, style.secondaryNodeColor)
   }
   state.getNodeColor = getNodeColorByBetweenessCentrality
   // Update all nodes
