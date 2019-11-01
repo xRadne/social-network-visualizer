@@ -10,13 +10,16 @@
   <div id="container">
     <div id="3d-graph"></div>
     <div id="overlay">
-      <h1>Social Network Visualizer</h1>
+      <h1 class="header">Social Network Visualizer</h1>
+      <div class="header" id="passwordContainer">
+        <input id="passwordInput" name="passwordInput" type="password" placeholder="passphrase">
+        <input id="passwordButton" name="passwordButton" type="button" value="Decrypt!"> 
+      </div>
     </div>
   </div>
   <script src="//unpkg.com/three"></script>
   <script src="//unpkg.com/three-spritetext"></script>
   <script src="//unpkg.com/3d-force-graph"></script>
-  <!-- <script src="//unpkg.com/force-graph"></script> -->
 
   <script type="text/javascript" src="jsnetworkx.min.js"></script>
   <script type="text/javascript" src="dat.gui.min.js"></script>

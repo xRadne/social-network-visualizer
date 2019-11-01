@@ -1,116 +1,191 @@
-import Timer from './Timer.js';
+import TeaClass from './Tea.js'
+const Tea = new TeaClass();
 
+// STATISTICS 
 var stats = new Stats();
-stats.showPanel( 0 );
-document.body.appendChild( stats.dom );
+stats.showPanel(0);
+document.body.appendChild(stats.dom);
 stats.begin();
 
+let state = {
+  selectedNode: null,
+  getNodeColor: getNodeColorByGender,
+}
+
 const divElement = document.getElementById("3d-graph");
+const passwordContainerElement = document.getElementById('passwordContainer');
+const passwordInputElement = document.getElementById('passwordInput');
+const passwordButtonElement = document.getElementById('passwordButton');
+passwordButtonElement.onclick = onPasswordInput;
 
-const configOptions  = { 
-  controlType: 'orbit', 
-  rendererConfig: { antialias: true, alpha: true } 
+// 3D FORCE GRAPH
+const configOptions = {
+  controlType: 'orbit',
+  rendererConfig: { antialias: true, alpha: true }
 };
-
-let selectedNode = null
-
-const Graph = ForceGraph3D(configOptions)(divElement)
+const Graph3D = ForceGraph3D(configOptions)(divElement)
   .enableNodeDrag(true)
-  .onNodeHover(node => {divElement.style.cursor = node ? 'pointer' : null})
+  .onNodeHover(node => { divElement.style.cursor = node ? 'pointer' : null })
   .onNodeClick(onNodeClick)
+  .linkColor(getLinkColor)
   .linkVisibility(getLinkVisibility)
   .nodeThreeObject(nodeObject)
   .showNavInfo(true)
-  .onEngineTick(() => {stats.end(); stats.begin();})
-  
-var GraphX = new jsnx.Graph()
+  .onEngineTick(() => { stats.end(); stats.begin(); })
+window.Graph3D = Graph3D
 
+// NETWORKX GRAPH
+var GraphX = new jsnx.Graph()
+window.GraphX = GraphX
+
+// GRAPHICAL USER INTERFACE
+var gui = new dat.GUI();
 class GraphSettings {
   constructor() {
-    this.pathToData = './miserables.json';
+    this.pathToData = './data/encryptedFacebookFriendsData.json';
     this.nodeShape = 'sphere';
-    this.visibleLinks = true;
-    // this.update = function () { Graph.refresh(); };
+    this.visibleLinks = false;
   }
 }
-
-var gui = new dat.GUI();
-
 var f1 = gui.addFolder('General'); f1.open()
 var graphSettings = new GraphSettings();
-const possiblePaths = ['./miserables.json','./private/FacebookFriendsData.json']
-f1.add(graphSettings,'pathToData',possiblePaths).onFinishChange(load);
-f1.add(graphSettings,'nodeShape',['image','text','sphere']).onChange(Graph.refresh);
-f1.add(graphSettings,'visibleLinks').onChange(Graph.refresh);
+const allDataPaths = ['./data/miserables.json', './data/encryptedFacebookFriendsData.json']
+f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
+f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
+f1.add(graphSettings, 'visibleLinks').onChange(Graph3D.refresh);
 
 var graphStatistics = {
-//  computeNodeCentrality: 
+  nodeDegree: () => console.log(GraphX.degree()),
+  computeBetweenessCentrality,
 }
-var f2 = gui.addFolder('Statistics')
-//f2.add(graphStatistics,'computeNodeCentrality');
+var f2 = gui.addFolder('Statistics'); f2.open()
+f2.add(graphStatistics, 'nodeDegree');
+f2.add(graphStatistics, 'computeBetweenessCentrality');
 
 var style = {
-  nodeColor: '#bbcc77',
-  nodeSelectionColor: '#bb3333',
+  primaryNodeColor: '#bbcc77',
+  secondaryNodeColor: '#bb3333',
   linkColor: '#505050'
 }
 var f3 = gui.addFolder('Styling'); f3.open()
-f3.addColor(style, 'nodeColor').onFinishChange(Graph.refresh)
-f3.addColor(style, 'nodeSelectionColor').onFinishChange(Graph.refresh)
-f3.addColor(style, 'linkColor').onFinishChange(Graph.refresh)
+f3.addColor(style, 'primaryNodeColor').onFinishChange(Graph3D.refresh)
+f3.addColor(style, 'secondaryNodeColor').onFinishChange(Graph3D.refresh)
+f3.addColor(style, 'linkColor').onFinishChange(Graph3D.refresh)
 
+// ENCRYPTION
+const fieldToUseAsSalt = 'id'
+const fieldsToDecrypt = [
+  'userId',
+  'name',
+  'userName',
+  'imageUrl',
+  'imageUri',
+  'gender',
+  'source',
+  'target',
+]
+
+// LOAD DATA FOR INITIAL VIZUALIZATION
 load(graphSettings.pathToData)
 
-const mapFriendsToNodes = data => ({nodes: data.friends, ...data})
+const mapFriendsToNodes = data => ({ nodes: data.friends, ...data })
 
 function load(path) {
   return fetch(path)
     .then(response => response.json())
     .then(data => {
-      if (data.nodes && data.links) return data
-      if (data.friends && data.links) return mapFriendsToNodes(data)
-      return {nodes: [], links: []}
-    })
-    .then(data => {
-      let edges = data.links.map(l => {return [l.source, l.target]})
-      GraphX.addEdgesFrom(edges)
-      console.log(GraphX)
+      if (isEncrypted(data)) {
+        const { decrypted, success } = tryDecryptData(data)
+        if (success) {
+          const passwordContainer = document.getElementById('passwordContainer')
+          passwordContainer.style.visibility = 'hidden'
+          return decrypted
+        }
+        else {
+          alert('Data is encrypted')
+          const passwordContainer = document.getElementById('passwordContainer')
+          passwordContainer.style.visibility = 'visible'
+        }
+      }
       return data
     })
-    .then(Graph.graphData)
+    .then(data => {
+      if (data.nodes && data.links) return data
+      if (data.friends && data.links) return mapFriendsToNodes(data)
+      return { nodes: [], links: [] }
+    })
+    .then(data => {
+      let edges = data.links.map(l => { return [l.source, l.target] })
+      GraphX.addEdgesFrom(edges)
+      return data
+    })
+    .then(Graph3D.graphData)
+}
+
+function isEncrypted(data) {
+  return data.readable !== 'true'
+}
+
+function tryDecryptData(encryptedData) {
+  let passphrase = getPassphrase()
+  let decrypted = decryptNetworkData(encryptedData, passphrase)
+
+  return { decrypted, success: !isEncrypted(decrypted) }
+}
+
+function getPassphrase() {
+  return passwordInputElement.value
+}
+
+function onPasswordInput() {
+  load(graphSettings.pathToData)
 }
 
 function onNodeClick(node) {
   selectNode(node)
   console.log(node)
-  // Graph.refresh()
-  Graph
+  Graph3D
     .linkVisibility(getLinkVisibility)
     .nodeThreeObject(nodeObject)
 }
 
 function getLinkVisibility(link, index) {
-  if (graphSettings.visibleLinks) {
-    if (selectedNode)
-      return link.source.id === selectedNode.id || link.target.id === selectedNode.id
-    return true
-  }
-  return false
+  if (state.selectedNode)
+    return link.source.id === state.selectedNode.id || link.target.id === state.selectedNode.id
+  return graphSettings.visibleLinks
+}
+
+function getLinkColor(link) {
+  return style.linkColor
+}
+
+function getNodeColorBySelection(node) {
+  let color = (state.selectedNode && node.id === state.selectedNode.id)
+    ? style.secondaryNodeColor
+    : style.primaryNodeColor;
+  return color
+}
+
+function getNodeColorByGender(node) {
+  let color = (node.gender == "f")
+    ? style.secondaryNodeColor
+    : style.primaryNodeColor;
+  return color
 }
 
 function removeNode(node) {
-  let { nodes, links } = Graph.graphData();
+  let { nodes, links } = Graph3D.graphData();
   links = links.filter(l => l.source !== node && l.target !== node); // Remove links attached to node
   nodes.splice(node.id, 1); // Remove node
   nodes.forEach((n, idx) => n.id = idx); // Reset node ids to array index
-  Graph.graphData({ nodes, links });
+  Graph3D.graphData({ nodes, links });
 }
 
 function selectNode(node) {
-  if (selectedNode && selectedNode.id === node.id) {
-    selectedNode = null;
+  if (state.selectedNode && state.selectedNode.id === node.id) {
+    state.selectedNode = null;
   } else {
-    selectedNode = node;
+    state.selectedNode = node;
   }
 }
 
@@ -123,9 +198,7 @@ function nodeObject(node) {
 }
 
 function createSphereObject(node) {
-  let color = (selectedNode && node.id === selectedNode.id) 
-  ? style.nodeSelectionColor 
-  : style.nodeColor;
+  let color = state.getNodeColor(node)
 
   return new THREE.Mesh(
     new THREE.SphereGeometry(7),
@@ -144,10 +217,10 @@ function createImageObject({ imageUri, imageUrl }) {
     new THREE.MeshBasicMaterial({ depthWrite: false, transparent: true, opacity: 0 })
   );
   // add img sprite as child
-  let imgTexture = 
-  (imageUri) ? new THREE.TextureLoader().load(imageUri) :
-  (imageUrl) ? new THREE.TextureLoader().load(imageUrl) : 
-  null;
+  let imgTexture =
+    (imageUri) ? new THREE.TextureLoader().load(imageUri) :
+      (imageUrl) ? new THREE.TextureLoader().load(imageUrl) :
+        null;
 
   const material = new THREE.SpriteMaterial({ map: imgTexture });
   const sprite = new THREE.Sprite(material);
@@ -181,4 +254,64 @@ function hasLinks(nodeId, links) {
     }
   }
   return false;
+}
+
+function computeBetweenessCentrality() {
+  let nodeBetweennessCentralities = jsnx.toArray(
+    jsnx.algorithms.betweennessCentrality(GraphX)
+  )
+  let maxValue = 0
+  nodeBetweennessCentralities.forEach(bc => {
+    if (bc[1] > maxValue) maxValue = bc[1]
+  })
+  function getNodeColorByBetweenessCentrality(node) {
+    let value
+    try {
+      value = nodeBetweennessCentralities.find(bc => node.id == bc[0])[1]
+    } catch (error) {
+      value = 0
+    }
+    let normalized = Math.pow(value / maxValue, 1/4);
+    let redness = Math.round(255 * normalized);
+    return 'rgb(' + redness + ',100,100)'
+  }
+  state.getNodeColor = getNodeColorByBetweenessCentrality
+  // Update all nodes
+  Graph3D.nodeThreeObject(nodeObject)
+}
+
+function decryptNetworkData(encryptedData, passphrase) {
+  let decrypted = decryptFields(encryptedData, fieldsToDecrypt, passphrase)
+
+  if (!encryptedData.friends) return decrypted
+  decrypted.friends = []
+  encryptedData.friends.forEach((friend, i) => {
+    let decryptedFriend = {}
+    let salt = friend[fieldToUseAsSalt]
+    let saltedpassphrase = salt.slice(0, 2) + passphrase.slice(0, 14)
+    decryptedFriend = decryptFields(friend, fieldsToDecrypt, saltedpassphrase)
+    decryptedFriend[fieldToUseAsSalt] = Tea.decrypt(salt, passphrase)
+    decrypted.friends[i] = decryptedFriend
+  })
+
+  if (!encryptedData.links) return decrypted
+  decrypted.links = []
+  encryptedData.links.forEach((link, i) => {
+    decrypted.links[i] = decryptFields(link, fieldsToDecrypt, passphrase)
+  })
+
+  if (!encryptedData.readable) return decrypted
+  decrypted.readable = Tea.decrypt(encryptedData.readable, passphrase)
+
+  return decrypted
+}
+
+function decryptFields(encryptedData, fields, key) {
+  let decryptedData = {}
+  for (let field of fields) {
+    if (encryptedData[field]) {
+      decryptedData[field] = Tea.decrypt(encryptedData[field], key)
+    }
+  }
+  return decryptedData
 }

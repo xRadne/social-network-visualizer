@@ -1,6 +1,6 @@
 body { 
   margin: 0;
-  /* overflow: hidden; */
+  overflow: hidden;
 }
 
 #container {
@@ -18,9 +18,13 @@ body {
   left: 0px;
 }
 
-h1 {
+.header {
   text-align: center;
   margin: 0px;
   color: white;
   background: none;
+}
+
+#passwordContainer {
+  visibility: visible;
 }
