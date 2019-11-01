@@ -1,5 +1,7 @@
 # Exclude Data
 *.json
+!package.json
+!package-lock.json
 
 # Exclude Modules
 node_modules/
