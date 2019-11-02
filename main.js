@@ -44,7 +44,7 @@ class GraphSettings {
   constructor() {
     this.pathToData = './data/encryptedFacebookFriendsData.json';
     this.nodeShape = 'sphere';
-    // this.visibleLinks = false;
+    this.addSelf = false;
   }
 }
 var f1 = gui.addFolder('General'); f1.open()
@@ -52,6 +52,7 @@ var graphSettings = new GraphSettings();
 const allDataPaths = ['./data/miserables.json', './data/encryptedFacebookFriendsData.json']
 f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
 f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
+f1.add(graphSettings, 'addSelf').onChange(reload);
 
 var graphStatistics = {
   computeNodeDegree,
@@ -91,6 +92,24 @@ load(graphSettings.pathToData)
 
 const mapFriendsToNodes = data => ({ nodes: data.friends, ...data })
 
+function reload() {
+  return load(graphSettings.pathToData)
+}
+
+function addSelf(data) {
+  let myNode = {
+    id: data.userId, 
+    name: data.name, 
+    userName: data.userName, 
+    imageUrl: data.imageUrl, 
+    imageUri: data.imageUri
+  }
+  data.nodes = [myNode, ...data.nodes]
+  let myConnections = data.friends.map(f => ({source: myNode.id, target: f.id}))
+  data.links = [...myConnections, ...data.links]
+  return data
+}
+
 function load(path) {
   return fetch(path)
     .then(response => response.json())
@@ -115,12 +134,14 @@ function load(path) {
       if (data.friends && data.links) return mapFriendsToNodes(data)
       return { nodes: [], links: [] }
     })
+    .then(addSelf)
     .then(data => {
       let edges = data.links.map(l => { return [l.source, l.target] })
       GraphX.addEdgesFrom(edges)
       return data
     })
     .then(Graph3D.graphData)
+    .catch(console.error)
 }
 
 function isEncrypted(data) {
