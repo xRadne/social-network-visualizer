@@ -44,7 +44,7 @@ class GraphSettings {
   constructor() {
     this.pathToData = './data/encryptedFacebookFriendsData.json';
     this.nodeShape = 'sphere';
-    this.visibleLinks = false;
+    // this.visibleLinks = false;
   }
 }
 var f1 = gui.addFolder('General'); f1.open()
@@ -52,25 +52,26 @@ var graphSettings = new GraphSettings();
 const allDataPaths = ['./data/miserables.json', './data/encryptedFacebookFriendsData.json']
 f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
 f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
-f1.add(graphSettings, 'visibleLinks').onChange(Graph3D.refresh);
 
 var graphStatistics = {
-  nodeDegree: () => console.log(GraphX.degree()),
+  computeNodeDegree,
   computeBetweenessCentrality,
 }
 var f2 = gui.addFolder('Statistics'); f2.open()
-f2.add(graphStatistics, 'nodeDegree');
+f2.add(graphStatistics, 'computeNodeDegree');
 f2.add(graphStatistics, 'computeBetweenessCentrality');
 
 var style = {
+  visibleLinks: false,
   primaryNodeColor: '#ccff00',
   secondaryNodeColor: '#ff0000',
   linkColor: '#505050'
 }
 var f3 = gui.addFolder('Styling'); f3.open()
-f3.addColor(style, 'primaryNodeColor').onFinishChange(Graph3D.refresh)
-f3.addColor(style, 'secondaryNodeColor').onFinishChange(Graph3D.refresh)
-f3.addColor(style, 'linkColor').onFinishChange(Graph3D.refresh)
+f3.addColor(style, 'primaryNodeColor').onFinishChange(Graph3D.refresh).listen()
+f3.addColor(style, 'secondaryNodeColor').onFinishChange(Graph3D.refresh).listen()
+f3.addColor(style, 'linkColor').onFinishChange(Graph3D.refresh).listen()
+f3.add(style, 'visibleLinks').onChange(Graph3D.refresh);
 
 // ENCRYPTION
 const fieldToUseAsSalt = 'id'
@@ -152,7 +153,7 @@ function onNodeClick(node) {
 function getLinkVisibility(link, index) {
   if (state.selectedNode)
     return link.source.id === state.selectedNode.id || link.target.id === state.selectedNode.id
-  return graphSettings.visibleLinks
+  return style.visibleLinks
 }
 
 function getLinkColor(link) {
@@ -256,6 +257,26 @@ function hasLinks(nodeId, links) {
   return false;
 }
 
+function computeNodeDegree() {
+  const degreesArray = jsnx.toArray(GraphX.degree())
+  let degrees = {}
+  degreesArray.forEach((pair, i) => degrees[pair[0]] = pair[1])
+
+  let maxDegree = 0
+  degreesArray.forEach(d => {
+    if (d[1] > maxDegree) maxDegree = d[1]
+  })
+
+  style.primaryNodeColor = '#00d0ff'
+  style.secondaryNodeColor = '#ff0000'
+  function getNodeColorByDegree(node) {
+    let normalized = degrees[node.id] / maxDegree
+    return ColorConverions.interpolateHex(normalized, style.primaryNodeColor, style.secondaryNodeColor)
+  }
+  state.getNodeColor = getNodeColorByDegree
+  Graph3D.nodeThreeObject(nodeObject)
+}
+
 function computeBetweenessCentrality() {
   let nodeBetweennessCentralities = jsnx.toArray(
     jsnx.algorithms.betweennessCentrality(GraphX)
@@ -273,7 +294,7 @@ function computeBetweenessCentrality() {
     } catch (error) {
       value = 0
     }
-    let normalized = Math.pow(value / maxValue, 1/4);
+    let normalized = Math.pow(value / maxValue, 1 / 4);
     return ColorConverions.interpolateHex(normalized, style.primaryNodeColor, style.secondaryNodeColor)
   }
   state.getNodeColor = getNodeColorByBetweenessCentrality
