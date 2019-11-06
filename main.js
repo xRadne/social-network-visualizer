@@ -1,3 +1,4 @@
+import Timer from './Timer.js'
 import TeaClass from './Tea.js'
 import * as ColorConverions from './ColorConversions.js'
 const Tea = new TeaClass();
@@ -49,6 +50,7 @@ class GraphSettings {
 }
 var f1 = gui.addFolder('General'); f1.open()
 var graphSettings = new GraphSettings();
+gui.remember(graphSettings)
 const allDataPaths = ['./data/miserables.json', './data/encryptedFacebookFriendsData.json']
 f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
 f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
@@ -90,6 +92,23 @@ const fieldsToDecrypt = [
 // LOAD DATA FOR INITIAL VIZUALIZATION
 load(graphSettings.pathToData)
 
+let angle = 0
+let timer = new Timer()
+let updateFunction = deltaTime => {
+  angle += deltaTime / 10
+  let distance = 1000
+  Graph3D.cameraPosition({
+    x: distance * Math.sin(angle),
+    z: distance * Math.cos(angle)
+  });
+}
+timer.update = deltaTime => {}
+timer.start()
+let animationSettings = {
+  rotate: false
+}
+f1.add(animationSettings, 'rotate').onChange(rotate => timer.update = rotate ? updateFunction : d=>{} );
+
 const mapFriendsToNodes = data => ({ nodes: data.friends, ...data })
 
 function reload() {
@@ -104,6 +123,7 @@ function addSelf(data) {
     imageUrl: data.imageUrl, 
     imageUri: data.imageUri
   }
+  state.selectedNode = myNode
   data.nodes = [myNode, ...data.nodes]
   let myConnections = data.friends.map(f => ({source: myNode.id, target: f.id}))
   data.links = [...myConnections, ...data.links]
@@ -134,7 +154,7 @@ function load(path) {
       if (data.friends && data.links) return mapFriendsToNodes(data)
       return { nodes: [], links: [] }
     })
-    .then(addSelf)
+    .then(data => {if (graphSettings.addSelf) addSelf(data); return data})
     .then(data => {
       let edges = data.links.map(l => { return [l.source, l.target] })
       GraphX.addEdgesFrom(edges)
