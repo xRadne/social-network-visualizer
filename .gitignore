@@ -12,4 +12,9 @@
 node_modules/
 
 # Exclude Private
+.vscode
 private
+
+
+# Exclude environment variables
+.env

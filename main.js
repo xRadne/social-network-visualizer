@@ -19,7 +19,6 @@ const passwordInputElement = document.getElementById('passwordInput');
 const passwordButtonElement = document.getElementById('passwordButton');
 passwordButtonElement.onclick = onPasswordInput;
 
-// 3D FORCE GRAPH
 const configOptions = {
   controlType: 'orbit',
   rendererConfig: { antialias: true, alpha: true }
@@ -32,18 +31,24 @@ const Graph3D = ForceGraph3D(configOptions)(divElement)
   .linkVisibility(getLinkVisibility)
   .nodeThreeObject(nodeObject)
   .showNavInfo(true)
-  .onEngineTick(() => { stats.end(); stats.begin(); })
+  // .onEngineTick(() => { stats.end(); stats.begin(); })
 window.Graph3D = Graph3D
 
 // NETWORKX GRAPH
 var GraphX = new jsnx.Graph()
 window.GraphX = GraphX
 
+// PATHS TO DATA
+const allDataPaths = [
+  './data/miserables.json',
+  './data/encryptedFacebookFriendsData.json', 
+]
+
 // GRAPHICAL USER INTERFACE
 var gui = new dat.GUI();
 class GraphSettings {
   constructor() {
-    this.pathToData = './data/encryptedFacebookFriendsData.json';
+    this.pathToData = allDataPaths[0];
     this.nodeShape = 'sphere';
     this.addSelf = false;
   }
@@ -51,7 +56,7 @@ class GraphSettings {
 var f1 = gui.addFolder('General'); f1.open()
 var graphSettings = new GraphSettings();
 gui.remember(graphSettings)
-const allDataPaths = ['./data/miserables.json', './data/encryptedFacebookFriendsData.json']
+
 f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
 f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
 f1.add(graphSettings, 'addSelf').onChange(reload);
@@ -96,18 +101,18 @@ let angle = 0
 let timer = new Timer()
 let updateFunction = deltaTime => {
   angle += deltaTime / 10
-  let distance = 1000
+  let distance = 1500
   Graph3D.cameraPosition({
     x: distance * Math.sin(angle),
     z: distance * Math.cos(angle)
   });
 }
-timer.update = deltaTime => {}
+timer.update = deltaTime => { }
 timer.start()
 let animationSettings = {
   rotate: false
 }
-f1.add(animationSettings, 'rotate').onChange(rotate => timer.update = rotate ? updateFunction : d=>{} );
+f1.add(animationSettings, 'rotate').onChange(rotate => timer.update = rotate ? updateFunction : d => { });
 
 const mapFriendsToNodes = data => ({ nodes: data.friends, ...data })
 
@@ -117,15 +122,15 @@ function reload() {
 
 function addSelf(data) {
   let myNode = {
-    id: data.userId, 
-    name: data.name, 
-    userName: data.userName, 
-    imageUrl: data.imageUrl, 
+    id: data.userId,
+    name: data.name,
+    userName: data.userName,
+    imageUrl: data.imageUrl,
     imageUri: data.imageUri
   }
   state.selectedNode = myNode
   data.nodes = [myNode, ...data.nodes]
-  let myConnections = data.friends.map(f => ({source: myNode.id, target: f.id}))
+  let myConnections = data.friends.map(f => ({ source: myNode.id, target: f.id }))
   data.links = [...myConnections, ...data.links]
   return data
 }
@@ -154,7 +159,7 @@ function load(path) {
       if (data.friends && data.links) return mapFriendsToNodes(data)
       return { nodes: [], links: [] }
     })
-    .then(data => {if (graphSettings.addSelf) addSelf(data); return data})
+    .then(data => { if (graphSettings.addSelf) addSelf(data); return data })
     .then(data => {
       let edges = data.links.map(l => { return [l.source, l.target] })
       GraphX.addEdgesFrom(edges)
