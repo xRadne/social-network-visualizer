@@ -11,7 +11,8 @@ stats.begin();
 
 let state = {
   selectedNode: null,
-  getNodeColor: getNodeColorByGender,
+  selectionNeighbours: new Set(),
+  getNodeColor: getNodeColorBySelection,
 }
 
 const divElement = document.getElementById("3d-graph");
@@ -29,6 +30,7 @@ const Graph3D = ForceGraph3D(configOptions)(divElement)
   .onNodeClick(onNodeClick)
   .linkColor(getLinkColor)
   .linkVisibility(getLinkVisibility)
+  .nodeVisibility(getNodeVisibility)
   .nodeThreeObject(nodeObject)
   .showNavInfo(true)
   // .onEngineTick(() => { stats.end(); stats.begin(); })
@@ -70,7 +72,8 @@ f2.add(graphStatistics, 'computeNodeDegree');
 f2.add(graphStatistics, 'computeBetweenessCentrality');
 
 var style = {
-  visibleLinks: false,
+  visibleLinks: true,
+  hideSelectionNonNeighbours: true,
   primaryNodeColor: '#ccff00',
   secondaryNodeColor: '#ff0000',
   linkColor: '#505050'
@@ -80,6 +83,7 @@ f3.addColor(style, 'primaryNodeColor').onFinishChange(Graph3D.refresh).listen()
 f3.addColor(style, 'secondaryNodeColor').onFinishChange(Graph3D.refresh).listen()
 f3.addColor(style, 'linkColor').onFinishChange(Graph3D.refresh).listen()
 f3.add(style, 'visibleLinks').onChange(Graph3D.refresh);
+f3.add(style, 'hideSelectionNonNeighbours').onChange(Graph3D.refresh);
 
 // ENCRYPTION
 const fieldToUseAsSalt = 'id'
@@ -202,6 +206,14 @@ function getLinkVisibility(link, index) {
   return style.visibleLinks
 }
 
+function getNodeVisibility(node, index) {
+  if (state.selectedNode && style.hideSelectionNonNeighbours) {
+    return state.selectionNeighbours.has(node.id) || node.id == state.selectedNode.id;
+  } else {
+    return true;
+  }
+}
+
 function getLinkColor(link) {
   return style.linkColor
 }
@@ -228,12 +240,26 @@ function removeNode(node) {
   Graph3D.graphData({ nodes, links });
 }
 
-function selectNode(node) {
+function selectNode(node, keepcurrent=false) {
   if (state.selectedNode && state.selectedNode.id === node.id) {
     state.selectedNode = null;
   } else {
     state.selectedNode = node;
   }
+  updateSelectionNeighbours();
+}
+
+function updateSelectionNeighbours() {
+  let { links } = Graph3D.graphData();
+  let { selectedNode } = state;
+  state.selectionNeighbours = new Set();
+  if (selectedNode == null) return;
+
+  links.filter(l => l.source.id == selectedNode.id || l.target.id == selectedNode.id)
+  .forEach(l => {
+    state.selectionNeighbours.add(l.source.id);
+    state.selectionNeighbours.add(l.target.id);
+  });
 }
 
 function nodeObject(node) {
