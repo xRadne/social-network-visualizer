@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.html",
   "scripts": {
+    "start": "serve .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,7 +22,10 @@
     "url": "https://github.com/xRadne/social-network-visualizer/issues"
   },
   "homepage": "https://github.com/xRadne/social-network-visualizer#readme",
-  "dependencies": {
-    "prompt": "^6.2.0"
+  "dev-dependencies": {
+    "prompt": "^1.1.0"
+  },
+  "devDependencies": {
+    "serve": "^12.0.0"
   }
 }
