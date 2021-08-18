@@ -10,7 +10,7 @@ document.body.appendChild(stats.dom);
 stats.begin();
 
 let state = {
-  selectedNode: null,
+  selectedNodes: new Set(),
   selectionNeighbours: new Set(),
   getNodeColor: getNodeColorBySelection,
 }
@@ -132,7 +132,7 @@ function addSelf(data) {
     imageUrl: data.imageUrl,
     imageUri: data.imageUri
   }
-  state.selectedNode = myNode
+  state.selectedNodes = new Set([ myNode.id ])
   data.nodes = [myNode, ...data.nodes]
   let myConnections = data.friends.map(f => ({ source: myNode.id, target: f.id }))
   data.links = [...myConnections, ...data.links]
@@ -192,23 +192,22 @@ function onPasswordInput() {
   load(graphSettings.pathToData)
 }
 
-function onNodeClick(node) {
-  selectNode(node)
-  console.log(node)
+function onNodeClick(node, event) {
+  selectNode(node, event.ctrlKey || event.shiftKey)
   Graph3D
     .linkVisibility(getLinkVisibility)
     .nodeThreeObject(nodeObject)
 }
 
 function getLinkVisibility(link, index) {
-  if (state.selectedNode)
-    return link.source.id === state.selectedNode.id || link.target.id === state.selectedNode.id
-  return style.visibleLinks
+  if (state.selectedNodes.size !== 0)
+    return state.selectedNodes.has(link.source.id) || state.selectedNodes.has(link.target.id);
+  return style.visibleLinks;
 }
 
 function getNodeVisibility(node, index) {
-  if (state.selectedNode && style.hideSelectionNonNeighbours) {
-    return state.selectionNeighbours.has(node.id) || node.id == state.selectedNode.id;
+  if (state.selectedNodes.size !== 0 && style.hideSelectionNonNeighbours) {
+    return state.selectionNeighbours.has(node.id) || state.selectedNodes.has(node.id);
   } else {
     return true;
   }
@@ -219,7 +218,7 @@ function getLinkColor(link) {
 }
 
 function getNodeColorBySelection(node) {
-  let color = (state.selectedNode && node.id === state.selectedNode.id)
+  let color = (state.selectedNodes.size !== 0 && state.selectedNodes.has(node.id))
     ? style.secondaryNodeColor
     : style.primaryNodeColor;
   return color
@@ -240,22 +239,31 @@ function removeNode(node) {
   Graph3D.graphData({ nodes, links });
 }
 
-function selectNode(node, keepcurrent=false) {
-  if (state.selectedNode && state.selectedNode.id === node.id) {
-    state.selectedNode = null;
+function selectNode(node, multiselect=false) {
+  if (multiselect) {
+    if (state.selectedNodes.has(node.id))
+      state.selectedNodes.delete(node.id);
+    else
+      state.selectedNodes.add(node.id);
   } else {
-    state.selectedNode = node;
+    if (state.selectedNodes.has(node.id))
+      state.selectedNodes = new Set();
+    else {
+      state.selectedNodes = new Set();
+      state.selectedNodes.add(node.id);
+    }
   }
+  
   updateSelectionNeighbours();
 }
 
 function updateSelectionNeighbours() {
   let { links } = Graph3D.graphData();
-  let { selectedNode } = state;
+  let { selectedNodes } = state;
   state.selectionNeighbours = new Set();
-  if (selectedNode == null) return;
+  if (selectedNodes.size === 0) return;
 
-  links.filter(l => l.source.id == selectedNode.id || l.target.id == selectedNode.id)
+  links.filter(l => selectedNodes.has(l.source.id) || selectedNodes.has(l.target.id))
   .forEach(l => {
     state.selectionNeighbours.add(l.source.id);
     state.selectionNeighbours.add(l.target.id);
