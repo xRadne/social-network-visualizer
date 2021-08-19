@@ -1,11 +1,29 @@
 body { 
   margin: 0;
   overflow: hidden;
+  font-family: Verdana, sans-serif;
+}
+
+h1, h2, h3, h4, h5, p, li {
+  color: white;
+}
+
+#sidenav {
+  height: 100%;
+  width: 20%;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: #11111188;
+  overflow-x: hidden;
+  padding: 20px;
+  
+  visibility: hidden;
 }
 
 #container {
   position: relative;
-  /* border: 2px solid #ff0000; */
 }
 
 #overlay {

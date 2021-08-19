@@ -8,25 +8,40 @@
 </head>
 <body>
   <div id="container">
-    <div id="3d-graph"></div>
-    <div id="overlay">
-      <h1 class="header">Social Network Visualizer</h1>
-      <div class="header" id="passwordContainer">
-        <input id="passwordInput" name="passwordInput" type="password" placeholder="passphrase">
-        <input id="passwordButton" name="passwordButton" type="button" value="Decrypt!"> 
+    <div id="sidenav">
+      <div class="selectedPerson">
+        <h2 id="selectedPerson">Alexander Radne</h2>
+        <p id="selectedPersonId">Id: 1231204945</p>
+        <h3 id="selectedPersonFriendsTitle">Friends</h3>
+        <ul id="selectedPersonFriends">
+          <li>Oscar</li>
+          <li>Olov</li>
+          <li>Edward</li>
+          <li>Daniel</li>
+        </ul>
       </div>
     </div>
+    <div class="main">
+      <div id="3d-graph"></div>
+      <div id="overlay">
+        <h1 class="header">Social Network Visualizer</h1>
+        <div class="header" id="passwordContainer">
+          <input id="passwordInput" name="passwordInput" type="password" placeholder="passphrase">
+          <input id="passwordButton" name="passwordButton" type="button" value="Decrypt!"> 
+        </div>
+      </div>
+    </div>
+    <script src="//unpkg.com/three"></script>
+    <script src="//unpkg.com/three-spritetext"></script>
+    <script src="//unpkg.com/3d-force-graph"></script>
+    
+    <script type="text/javascript" src="jsnetworkx.min.js"></script>
+    <script type="text/javascript" src="dat.gui.min.js"></script>
+    <script type="text/javascript" src="stats.min.js"></script>
+    
+    <script type="module" src="main.js"></script>
+    <script nomodule>
+      alert("This browser is too old. Browser needs to be able to run javascript 'modules'")
+      </script>
   </div>
-  <script src="//unpkg.com/three"></script>
-  <script src="//unpkg.com/three-spritetext"></script>
-  <script src="//unpkg.com/3d-force-graph"></script>
-
-  <script type="text/javascript" src="jsnetworkx.min.js"></script>
-  <script type="text/javascript" src="dat.gui.min.js"></script>
-  <script type="text/javascript" src="stats.min.js"></script>
-
-  <script type="module" src="main.js"></script>
-  <script nomodule>
-    alert("This browser is too old. Browser needs to be able to run javascript 'modules'")
-  </script>
 </body>

@@ -4,13 +4,14 @@ import * as ColorConverions from './ColorConversions.js'
 const Tea = new TeaClass();
 
 // STATISTICS 
-var stats = new Stats();
-stats.showPanel(0);
-document.body.appendChild(stats.dom);
-stats.begin();
+// var stats = new Stats();
+// stats.showPanel(0);
+// document.body.appendChild(stats.dom);
+// stats.begin();
 
-let state = {
+const state = {
   selectedNodes: new Set(),
+  selectedNodeIds: new Set(),
   selectionNeighbours: new Set(),
   getNodeColor: getNodeColorBySelection,
 }
@@ -19,6 +20,9 @@ const divElement = document.getElementById("3d-graph");
 const passwordInputElement = document.getElementById('passwordInput');
 const passwordButtonElement = document.getElementById('passwordButton');
 passwordButtonElement.onclick = onPasswordInput;
+const sidenavElement = document.getElementById("sidenav");
+
+window.addEventListener( 'resize', onWindowResize, false );
 
 const configOptions = {
   controlType: 'orbit',
@@ -28,6 +32,7 @@ const Graph3D = ForceGraph3D(configOptions)(divElement)
   .enableNodeDrag(true)
   .onNodeHover(node => { divElement.style.cursor = node ? 'pointer' : null })
   .onNodeClick(onNodeClick)
+  .onBackgroundClick(onBackgroundClick)
   .linkColor(getLinkColor)
   .linkVisibility(getLinkVisibility)
   .nodeVisibility(getNodeVisibility)
@@ -59,7 +64,7 @@ var f1 = gui.addFolder('General'); f1.open()
 var graphSettings = new GraphSettings();
 gui.remember(graphSettings)
 
-f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(load);
+f1.add(graphSettings, 'pathToData', allDataPaths).onFinishChange(reload);
 f1.add(graphSettings, 'nodeShape', ['image', 'text', 'sphere']).onChange(Graph3D.refresh);
 f1.add(graphSettings, 'addSelf').onChange(reload);
 
@@ -72,7 +77,7 @@ f2.add(graphStatistics, 'computeNodeDegree');
 f2.add(graphStatistics, 'computeBetweenessCentrality');
 
 var style = {
-  visibleLinks: true,
+  visibleLinks: false,
   hideSelectionNonNeighbours: true,
   primaryNodeColor: '#ccff00',
   secondaryNodeColor: '#ff0000',
@@ -121,6 +126,8 @@ f1.add(animationSettings, 'rotate').onChange(rotate => timer.update = rotate ? u
 const mapFriendsToNodes = data => ({ nodes: data.friends, ...data })
 
 function reload() {
+  deselectAll();
+  updateSideBar();
   return load(graphSettings.pathToData)
 }
 
@@ -132,7 +139,7 @@ function addSelf(data) {
     imageUrl: data.imageUrl,
     imageUri: data.imageUri
   }
-  state.selectedNodes = new Set([ myNode.id ])
+  state.selectedNodeIds = new Set([ myNode.id ])
   data.nodes = [myNode, ...data.nodes]
   let myConnections = data.friends.map(f => ({ source: myNode.id, target: f.id }))
   data.links = [...myConnections, ...data.links]
@@ -194,20 +201,35 @@ function onPasswordInput() {
 
 function onNodeClick(node, event) {
   selectNode(node, event.ctrlKey || event.shiftKey)
+  updateSideBar();
   Graph3D
     .linkVisibility(getLinkVisibility)
     .nodeThreeObject(nodeObject)
 }
 
+function onBackgroundClick(event) {
+  deselectAll();
+  updateSideBar();
+  Graph3D
+    .linkVisibility(getLinkVisibility)
+    .nodeThreeObject(nodeObject)
+}
+
+function onWindowResize(){
+  Graph3D.renderer().setSize( window.innerWidth, window.innerHeight );
+  Graph3D.width(window.innerWidth);
+  Graph3D.height(window.innerHeight);
+}
+
 function getLinkVisibility(link, index) {
-  if (state.selectedNodes.size !== 0)
-    return state.selectedNodes.has(link.source.id) || state.selectedNodes.has(link.target.id);
+  if (state.selectedNodeIds.size !== 0)
+    return state.selectedNodeIds.has(link.source.id) || state.selectedNodeIds.has(link.target.id);
   return style.visibleLinks;
 }
 
 function getNodeVisibility(node, index) {
-  if (state.selectedNodes.size !== 0 && style.hideSelectionNonNeighbours) {
-    return state.selectionNeighbours.has(node.id) || state.selectedNodes.has(node.id);
+  if (state.selectedNodeIds.size !== 0 && style.hideSelectionNonNeighbours) {
+    return state.selectionNeighbours.has(node.id) || state.selectedNodeIds.has(node.id);
   } else {
     return true;
   }
@@ -218,7 +240,7 @@ function getLinkColor(link) {
 }
 
 function getNodeColorBySelection(node) {
-  let color = (state.selectedNodes.size !== 0 && state.selectedNodes.has(node.id))
+  let color = (state.selectedNodeIds.size !== 0 && state.selectedNodeIds.has(node.id))
     ? style.secondaryNodeColor
     : style.primaryNodeColor;
   return color
@@ -231,6 +253,18 @@ function getNodeColorByGender(node) {
   return color
 }
 
+function getConnectedNodes(node) {
+  let { nodes, links } = Graph3D.graphData();
+
+  let connectedNodeIds = new Set();
+  links.filter(l => node.id === l.source.id || node.id === l.target.id)
+  .forEach(l => {
+    connectedNodeIds.add(l.source.id); 
+    connectedNodeIds.add(l.target.id); 
+  });
+  return nodes.filter(n => connectedNodeIds.has(n.id));
+}
+
 function removeNode(node) {
   let { nodes, links } = Graph3D.graphData();
   links = links.filter(l => l.source !== node && l.target !== node); // Remove links attached to node
@@ -239,27 +273,46 @@ function removeNode(node) {
   Graph3D.graphData({ nodes, links });
 }
 
+function deselectAll() {
+  state.selectedNodes = new Set();
+  state.selectedNodeIds = new Set();
+}
+
+function selectNodes(nodes, keepselected=false) {
+  if (!keepselected) 
+    deselectAll();
+  nodes.forEach(node => selectNode(node, multiselect=true))
+}
+
 function selectNode(node, multiselect=false) {
   if (multiselect) {
-    if (state.selectedNodes.has(node.id))
-      state.selectedNodes.delete(node.id);
-    else
-      state.selectedNodes.add(node.id);
-  } else {
-    if (state.selectedNodes.has(node.id))
-      state.selectedNodes = new Set();
+    if (state.selectedNodeIds.has(node.id)) {
+      state.selectedNodes.delete(node);
+      state.selectedNodeIds.delete(node.id);
+    }
     else {
-      state.selectedNodes = new Set();
-      state.selectedNodes.add(node.id);
+      state.selectedNodes.add(node);
+      state.selectedNodeIds.add(node.id);
+    }
+  } else {
+    if (state.selectedNodeIds.has(node.id)) {
+      deselectAll();
+    }
+    else {
+      deselectAll();
+      state.selectedNodes.add(node);
+      state.selectedNodeIds.add(node.id);
     }
   }
   
+  console.log("Selected", node)
+
   updateSelectionNeighbours();
 }
 
 function updateSelectionNeighbours() {
   let { links } = Graph3D.graphData();
-  let { selectedNodes } = state;
+  let { selectedNodeIds: selectedNodes } = state;
   state.selectionNeighbours = new Set();
   if (selectedNodes.size === 0) return;
 
@@ -268,6 +321,25 @@ function updateSelectionNeighbours() {
     state.selectionNeighbours.add(l.source.id);
     state.selectionNeighbours.add(l.target.id);
   });
+}
+
+function updateSideBar() {
+  sidenavElement.style.visibility = state.selectedNodeIds.size > 0 ? "visible" : "hidden";
+
+  const selectedPersonElement = document.createElement("div");
+  sidenavElement.insertBefore(selectedPersonElement, sidenavElement.firstChild);
+
+  sidenavElement.innerHTML = [...state.selectedNodes].map(node => {
+    const connectedNodes = getConnectedNodes(node);
+    return `<div class="selectedPerson">
+    <h2 class="selectedPerson">${node.name || node.id}</h2>
+    <p class="selectedPersonId">Id: ${node.id}</p>
+    <h3 class="selectedPersonFriendsTitle">Common friends (${connectedNodes.length})</h3>
+    <ul class="selectedPersonFriends">
+      ${connectedNodes.map(n => "<li>"+(n.name || n.id)+"</li>").join("")}
+    </ul>
+  </div>`
+  }).join("");
 }
 
 function nodeObject(node) {
