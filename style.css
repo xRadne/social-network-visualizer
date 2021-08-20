@@ -26,11 +26,14 @@ h1, h2, h3, h4, h5, p, li {
   position: relative;
 }
 
-#overlay {
+.overlay {
   position: absolute;
-  width: 100%;
-  height: auto;
   background-color: none;
+}
+
+#overlay-top {
+  height: auto;
+  width: 100%;
 
   top: 0px;
   left: 0px;
